@@ -1,193 +1,129 @@
-cmake_minimum_required(VERSION 3.12)
+cmake_minimum_required(VERSION 3.20)
+project(serdepp VERSION 0.1.4 LANGUAGES CXX C)
 
-set(CPPM_VERSION 0.0.13)
-include(cmake/cppm_loader.cmake)
-cppm_project()
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-project(serdepp VERSION 0.1.4 LANGUAGES C CXX)
-cppm_setting()
-cppm_cxx_standard(17)
-cppm_compiler_option(
-   DEBUG
-      CLANG "-fprofile-instr-generate -fcoverage-mapping --coverage"
-)
+include(CTest)
+enable_testing()
 
-find_cppkg(Catch2 3.5.0  MODULE Catch2::Catch2WithMain TYPE lib OPTIONAL OFF)
-find_cppkg(RapidJSON 1.1.1  MODULE rapidjson TYPE lib OPTIONAL OFF)
-find_cppkg(benchmark 1.5.2  MODULE benchmark::benchmark TYPE lib OPTIONAL OFF)
-find_cppkg(fmt 10.2.0  MODULE fmt::fmt-header-only TYPE lib OPTIONAL OFF)
-find_cppkg(magic_enum 0.9.5  MODULE magic_enum::magic_enum TYPE lib)
-find_cppkg(nameof 0.10.3  MODULE nameof::nameof TYPE lib)
-find_cppkg(nlohmann_json 3.11.3  MODULE nlohmann_json::nlohmann_json TYPE lib OPTIONAL OFF)
-find_cppkg(toml11 3.7.1  MODULE toml11::toml11 TYPE lib OPTIONAL OFF)
-find_cppkg(yaml-cpp 0.6.3  MODULE yaml-cpp TYPE lib OPTIONAL OFF)
-
-
-cppm_target_define(serdepp STATIC
-SOURCES
-    src/to_static.cpp
-)
-
-cppm_examples_area()
-if(SERDEPP_BUILD_EXAMPLES)
-
-cppm_target_define(serde_example1 BINARY
-SOURCES
-    examples/example1.cpp
-)
-
-cppm_target_define(serde_example BINARY
-SOURCES
-    examples/example.cpp
-)
-
-cppm_target_define(simple_example BINARY
-SOURCES
-    examples/simple_example.cpp
-)
-
-cppm_target_define(flatten_example BINARY
-SOURCES
-    examples/flatten.cpp
-)
-
-cppm_target_define(variant_example BINARY
-SOURCES
-    examples/variant.cpp
-)
-
-cppm_target_define(parse_file_example BINARY
-SOURCES
-    examples/parse_file.cpp
-)
-
-cppm_target_define(struct_attribute_example BINARY
-SOURCES
-    examples/struct_attribute.cpp
-)
-
-cppm_target_define(sugar BINARY
-SOURCES
-    examples/sugar.cpp
-)
-
-cppm_target_define(reflection BINARY
-SOURCES
-    examples/reflection.cpp
-)
-
-cppm_target_define(print BINARY
-SOURCES
-    examples/print.cpp
-)
-
-cppm_target_define(pointer BINARY
-SOURCES
-    examples/pointer.cpp
-)
-
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        add_compile_options(-fprofile-instr-generate -fcoverage-mapping --coverage)
+    endif()
 endif()
 
-cppm_unit_test_area()
-if(SERDEPP_BUILD_TESTING)
+include(FetchContent)
+set(FETCHCONTENT_BASE_DIR ${CMAKE_SOURCE_DIR}/.cache)
+set(FETCHCONTENT_FULLY_DISCONNECTED ON)
+FetchContent_Declare(
+    fmt
+    GIT_REPOSITORY https://gitee.com/kj-smart/fmt.git
+    GIT_TAG 12.1.0
+    GIT_SHALLOW TRUE
+    GIT_PROGRESS TRUE
+)
+FetchContent_MakeAvailable(fmt)
+FetchContent_Declare(
+    magic_enum
+    GIT_REPOSITORY https://gitee.com/kj-smart/magic_enum.git
+    GIT_TAG  v0.9.7
+    GIT_SHALLOW TRUE
+    GIT_PROGRESS TRUE
+)
+FetchContent_MakeAvailable(magic_enum)
 
-cppm_target_define(unittest BINARY
-SOURCES
-    tests/serializer.cpp
-    tests/rapid_json.cpp
-    tests/yaml_cpp.cpp
-    tests/toml11.cpp
-    tests/reflection.cpp
-    tests/nlohmann_json.cpp
-    tests/test_struct.hpp
+FetchContent_Declare(
+    nameof
+    GIT_REPOSITORY https://gitee.com/kj-smart/nameof.git
+    GIT_TAG  v0.10.4
+    GIT_SHALLOW TRUE
+    GIT_PROGRESS TRUE
+)
+FetchContent_MakeAvailable(nameof)
+
+
+FetchContent_Declare(
+    nlohmann_json
+    GIT_REPOSITORY https://gitee.com/kj-smart/json.git
+    GIT_TAG  v3.12.0
+    GIT_SHALLOW TRUE
+    GIT_PROGRESS TRUE
+)
+FetchContent_MakeAvailable(nlohmann_json)
+
+FetchContent_Declare(
+    yaml_cpp
+    GIT_REPOSITORY https://gitee.com/kj-smart/yaml-cpp.git
+    GIT_TAG  0.8.0
+    GIT_SHALLOW TRUE
+    GIT_PROGRESS TRUE
+)
+FetchContent_MakeAvailable(yaml_cpp)
+
+
+set(EXPORT_NAMESPACE "${PROJECT_NAME}::")
+add_library(${PROJECT_NAME} INTERFACE)
+add_library(${EXPORT_NAMESPACE}${PROJECT_NAME} ALIAS ${PROJECT_NAME})
+target_include_directories(
+  ${PROJECT_NAME} INTERFACE $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 
-endif()
-end_cppm_unit_test_area()
-
-if(SERDEPP_BUILD_BENCHMARKS)
-
-cppm_target_define(benchmark BINARY
-SOURCES
-    benchmark/benchmark.cpp
-)
-
-cppm_target_define(data_type_benchmark BINARY
-SOURCES
-    benchmark/data_type_benchmark.cpp
-)
-
-cppm_target_define(syntax_sugar_benchmark BINARY
-SOURCES
-    benchmark/syntax_benchmark.cpp
-)
-
-endif()
 
 set(serdepp_global_deps
-    PRIVATE benchmark Catch2
-    PUBLIC RapidJSON nlohmann_json toml11 yaml-cpp fmt magic_enum nameof)
+    nlohmann_json  yaml-cpp magic_enum nameof fmt
+)
+target_link_libraries(${PROJECT_NAME} INTERFACE ${serdepp_global_deps})
 
-cppm_target_dependencies(serdepp
-   ${serdepp_global_deps})
+option(SERDEPP_BUILD_EXAMPLES "Build examples" ON)
+if(SERDEPP_BUILD_EXAMPLES)
+        add_executable(serde_example1 examples/example1.cpp)
+    target_link_libraries(serde_example1 PRIVATE ${PROJECT_NAME})
 
-cppm_target_dependencies(serde_example1
-   ${serdepp_global_deps}
-   serdepp)
+            
+        
+        
+        
+    add_executable(parse_file_example examples/parse_file.cpp)
+    target_compile_definitions(parse_file_example PRIVATE yaml_file="${PROJECT_SOURCE_DIR}/examples/test.yaml")
+    target_link_libraries(parse_file_example PRIVATE ${PROJECT_NAME})
 
-cppm_target_dependencies(serde_example
-   ${serdepp_global_deps}
-   serdepp)
+        
+        
+        
+        
+        endif()
 
-cppm_target_dependencies(simple_example
-   ${serdepp_global_deps}
-   serdepp)
+option(SERDEPP_BUILD_TESTING "Build tests" OFF)
+if(SERDEPP_BUILD_TESTING AND BUILD_TESTING)
+    add_executable(unittest
+        tests/serializer.cpp
+        tests/rapid_json.cpp
+        tests/yaml_cpp.cpp
+        tests/toml11.cpp
+        tests/reflection.cpp
+        tests/nlohmann_json.cpp
+    )
 
-cppm_target_dependencies(flatten_example
-   ${serdepp_global_deps}
-   serdepp)
-cppm_target_dependencies(variant_example
-   ${serdepp_global_deps}
-   serdepp)
+    target_link_libraries(unittest
+        PRIVATE serdepp ${serdepp_global_deps}
+    )
 
-cppm_target_dependencies(parse_file_example
-   ${serdepp_global_deps}
-   serdepp)
+        add_test(NAME unittest COMMAND unittest)
+endif()
 
-cppm_target_dependencies(struct_attribute_example
-   ${serdepp_global_deps}
-   serdepp)
+option(SERDEPP_BUILD_BENCHMARKS "Build benchmarks" OFF)
+if(SERDEPP_BUILD_BENCHMARKS)
+    add_executable(benchmark benchmark/benchmark.cpp)
+    target_link_libraries(benchmark PRIVATE serdepp benchmark::benchmark ${serdepp_global_deps})
 
-cppm_target_dependencies(sugar
-   ${serdepp_global_deps}
-   serdepp)
+    add_executable(data_type_benchmark benchmark/data_type_benchmark.cpp)
+    target_link_libraries(data_type_benchmark PRIVATE serdepp benchmark::benchmark ${serdepp_global_deps})
 
-cppm_target_dependencies(reflection
-   ${serdepp_global_deps}
-   serdepp)
+    add_executable(syntax_sugar_benchmark benchmark/syntax_benchmark.cpp)
+    target_link_libraries(syntax_sugar_benchmark PRIVATE serdepp benchmark::benchmark ${serdepp_global_deps})
+endif()
 
-cppm_target_dependencies(print
-   ${serdepp_global_deps}
-   serdepp)
-
-cppm_target_dependencies(pointer
-   ${serdepp_global_deps}
-   serdepp)
-
-cppm_target_dependencies(unittest
-   ${serdepp_global_deps}
-   serdepp)
-
-cppm_target_dependencies(benchmark
-   ${serdepp_global_deps}
-   serdepp)
-
-cppm_target_dependencies(data_type_benchmark
-   ${serdepp_global_deps}
-   serdepp)
-
-cppm_target_dependencies(syntax_sugar_benchmark
-   ${serdepp_global_deps}
-   serdepp)
-
-cppm_target_install(serdepp)
+include(GNUInstallDirs)
